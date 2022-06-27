@@ -1,91 +1,127 @@
-// import stylesheet
 import './css/styles.css';
-// import Notiflix 
+
+
+// Import searching function
+import { fetchImages } from './js/fetchImage';
+
+
 import Notiflix from 'notiflix';
 import 'notiflix/dist/notiflix-3.2.5.min.css';
 
 
-
-// 
-
-// const list = document.querySelector(".gallery");
-// // tworzenie galerii
-// const photo = galleryItems.map((image) => `
-// <a class="gallery__item" href=${image.original}>
-//   <img class="gallery__image" src=${image.preview} alt="${image.description}" />
-// </a>
-//   `).join("");
-
-// list.insertAdjacentHTML("beforeend", photo);
-
-// var lightbox = new SimpleLightbox('.gallery a', { captionsData: "alt", captionDelay: 250 })
-
-// console.log(galleryItems);
-
-// // import debounce
-// import debounce from 'lodash.debounce';
-// const DEBOUNCE_DELAY = 300;
-// // import searching function
-// import { fetchCountries } from './js/fetchCountries';
-
-// // Select search element
-// const searchBox = document.querySelector("#search-box");
-// // Select output elements
-// const countryList = document.querySelector(".country-list");
-// const countryInfo = document.querySelector(".country-info");
+import SimpleLightbox from 'simplelightbox';
+import 'simplelightbox/dist/simple-lightbox.min.css';
 
 
-// // Start searching after user input
-// searchBox.addEventListener("input", debounce(searchingValue, DEBOUNCE_DELAY));
+// Input and output elements
+const searchForm = document.querySelector(".search-form");
+const searchInput = document.querySelector(".search-form__input");
+const loadMoreImgBtn = document.querySelector(".load-more");
+const gallery = document.querySelector(".gallery");
 
-// // Searching country name in data base
-// function searchingValue() {
-//     fetchCountries(searchBox.value.trim())
-//         .then(countries => resultFromDataBase(countries))
-//         .catch((error) => {
-//             if (searchBox.value !== "") {
-//                 Notiflix.Notify.failure("Oops, there is no country with that name");
-//             }
-//             clearElements(countryList, countryInfo);
-//             console.log(`Error: ${error.message}`);
-//         });
-// };
+let pageNumber;
+let displayedImages;
+let totalOfHits;
+let lightbox;
 
-// // Filter searching resoult
-// function resultFromDataBase(countries) {
-//     if (countries.length > 10) {
-//         clearElements(countryList, countryInfo);
-//         Notiflix.Notify.info("Too many matches found. Please enter a more specific name.");
+// Start searching after submit
+searchForm.addEventListener("submit", newSearch);
 
-//     } else if (countries.length >= 2 && countries.length <= 10) {
-//         clearElements(countryList, countryInfo);
-//         const dataResoult = countries
-//             .map(({ name, flags }) =>
-//                 `<li class="country-item">
-//           <img class="country-flag" src="${flags.svg}" alt="The flag of ${name.common}">
-//           <p class="country-name">${name.common}</p>
-//         </li>`
-//             )
-//             .join("");
-//         countryList.innerHTML = dataResoult;
+// Load more images after clicking button Load more
+loadMoreImgBtn.addEventListener("click", loadMoreImg);
 
-//     } else if (countries.length === 1) {
-//         clearElements(countryList, countryInfo);
-//         const dataResoult = countries
-//             .map(({ name, capital, population, flags, languages }) =>
-//                 `<h2 class="country-info__name"><img class="country-flag" src="${flags.svg}" alt="The flag of ${name.common}">${name.common}</h2>
-//         <p class="country-info__item"><span class="country-info__label">Capital:</span> ${capital}</p>
-//         <p class="country-info__item"><span class="country-info__label">Population:</span> ${population}</p>
-//         <p class="country-info__item"><span class="country-info__label">Languages:</span> ${Object.values(languages).join(", ")}</p>`
-//             );
-//         countryInfo.innerHTML = dataResoult;
+// Clear old search resoult
+function newSearch(e) {
+    e.preventDefault();
+    loadMoreImgBtn.style.display = "none"
+    pageNumber = 1;
+    displayedImages = 0;
+    searchingImages();
+    gallery.innerHTML = "";
+}
 
-//     } else if (countries.length < 1) {
-//         clearElements(countryList, countryInfo);
-//     }
-// };
+// Pagination of resoult
+function loadMoreImg() {
+    pageNumber += 1;
+    searchingImages();
+}
 
-// // Set empty output element
-// function clearElements(...outputs) {
-//     outputs.forEach(output => output.innerHTML = "");
-// };
+// Definition of the image search function contained in the backend
+function searchingImages() {
+    fetchImages(searchInput.value, pageNumber)
+        .then(images => {
+            renderImages(images);
+        })
+        .catch(error => console.log(error));
+}
+
+// Definition of the images rendering function based on the data taken from the backend
+function renderImages({ hits, totalHits }) {
+    totalOfHits = totalHits;
+
+    const markups = hits.map(({ webformatURL, largeImageURL, tags, likes, views, comments, downloads }) => `
+  <div class="gallery__item">
+    <a class="gallery__link" href="${largeImageURL}"><img class="gallery__img" src="${webformatURL}" alt="${tags}" loading="lazy" /></a>
+    <div class="gallery__info">
+      <p class="info__item">
+        <b class="info__label">Likes</b>
+        <span class="info__data">${likes}</span>
+      </p>
+      <p class="info__item">
+        <b class="info__label">Views</b>
+        <span class="info__data">${views}</span>
+      </p>
+      <p class="info__item">
+        <b class="info__label">Comments</b>
+        <span class="info__data">${comments}</span>
+      </p>
+      <p class="info__item">
+        <b class="info__label">Downloads</b>
+        <span class="info__data">${downloads}</span>
+      </p>
+    </div>
+  </div>
+  `)
+        .join("");
+
+    gallery.insertAdjacentHTML("beforeend", markups);
+
+    if (typeof lightbox === "object") {
+        lightbox.destroy();
+    }
+
+    lightbox = new SimpleLightbox(".gallery__item a");
+
+    displayedImages += hits.length;
+    checkingForImagesLeft();
+
+    if (displayedImages === 0) {
+        Notiflix.Notify.failure("Sorry, there are no images matching your search query. Please try again.");
+    } else if (displayedImages > 0 && displayedImages === totalOfHits && pageNumber === 1) {
+        Notiflix.Notify.info(`Hooray! We found ${totalOfHits} images, but you've reached the end of search results.`);
+    }
+    else if (displayedImages > 0 && displayedImages === totalOfHits) {
+                Notiflix.Notify.info("We're sorry, but you've reached the end of search results.");
+    } else if (displayedImages > 0 && pageNumber === 1) {
+        Notiflix.Notify.success(`Hooray! We found ${totalOfHits} images.`);
+    }
+
+    if (pageNumber > 1) {
+        const { height: cardHeight } = document
+            .querySelector('.gallery .gallery__item').getBoundingClientRect();
+
+        window.scrollBy({
+            top: cardHeight * 2,
+            behavior: 'smooth',
+        });
+    }
+}
+
+// Hidding Load More button
+function checkingForImagesLeft() {
+    if (totalOfHits === displayedImages) {
+        loadMoreImgBtn.style.display = "none";
+    } else {
+        loadMoreImgBtn.style.display = "block";
+    }
+}
