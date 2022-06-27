@@ -48,7 +48,7 @@ function loadMoreImg() {
 
 // Definition of the image search function contained in the backend
 function searchingImages() {
-    fetchImages(searchInput.value, pageNumber)
+    fetchImages(searchInput.value.trim(), pageNumber)
         .then(images => {
             renderImages(images);
         })
